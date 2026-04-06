@@ -257,22 +257,23 @@ def dispatch_request(state: BridgeState, payload: dict) -> dict:
     log.info("Request action=%s id=%s", action, req_id[:8])
 
     if action == "NOTIFY":
-        kind = payload.get("type", "ALERT").upper()
+        # Support both "kind" (new) and "type" (legacy) fields.
+        # Approval kinds: BASH, TOOL, PERM (new protocol), ALERT (legacy).
+        kind = payload.get("kind", payload.get("type", "BASH")).upper()
         message = str(payload.get("message", ""))[:120]
 
-        # Forward to Flipper
+        # Forward to Flipper using new serial protocol
         cmd = f"NOTIFY:{kind}:{message}"
         serial_write(state, cmd)
 
-        if kind == "ALERT":
-            # Wait for physical response
+        # All alert kinds require physical approval
+        if kind in ("BASH", "TOOL", "PERM", "ALERT"):
             req = PendingRequest()
             with state.pending_lock:
                 state.pending[req_id] = req
 
             fired = req.event.wait(timeout=APPROVAL_TIMEOUT)
             if not fired:
-                # Timeout — remove from pending, fail closed
                 with state.pending_lock:
                     state.pending.pop(req_id, None)
                 log.warning("Approval timeout for %s", req_id[:8])
@@ -281,7 +282,7 @@ def dispatch_request(state: BridgeState, payload: dict) -> dict:
 
             return {"id": req_id, "approved": req.approved, "reason": req.reason}
         else:
-            # Non-alert NOTIFY (OK/DENY display): no approval wait
+            # Non-approval NOTIFY (e.g. OK/DENY display): no wait
             return {"id": req_id, "ok": True}
 
     elif action in ("IDLE", "THINK", "WAIT"):
