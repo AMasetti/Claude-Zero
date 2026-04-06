@@ -590,6 +590,17 @@ int32_t flipper_claude_app(void* p) {
                          screen == ScreenTool ||
                          screen == ScreenPerm);
 
+        /* Down button: cycle through all screens for testing */
+        if(ev.key == InputKeyDown) {
+            furi_mutex_acquire(ctx->mutex, FuriWaitForever);
+            AppScreen next = (AppScreen)((ctx->screen + 1) % 7);
+            furi_mutex_release(ctx->mutex);
+            /* Use a test message for alert screens */
+            const char* test_msg = "rm -rf /tmp/old_build";
+            set_screen(ctx, next, test_msg);
+            continue;
+        }
+
         if(ev.key == InputKeyBack) {
             if(is_alert) {
                 serial_send("CANCEL\n");
