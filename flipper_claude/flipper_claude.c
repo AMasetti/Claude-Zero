@@ -1,6 +1,5 @@
 #include <furi.h>
 #include <furi_hal.h>
-#include <furi_hal_uart.h>
 #include <gui/gui.h>
 #include <gui/view_port.h>
 #include <input/input.h>
@@ -11,7 +10,7 @@
 #include <stdio.h>
 
 #define TAG "FlipperClaude"
-#define UART_CH FuriHalUartIdUSART1
+#define UART_CH FuriHalSerialIdUsart
 #define RX_BUF_SIZE 256
 #define CMD_BUF_SIZE 256
 #define CMD_TEXT_SIZE 128
