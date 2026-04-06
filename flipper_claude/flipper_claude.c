@@ -410,53 +410,6 @@ static void handle_command(AppContext* ctx, FuriHalSerialHandle* handle, const c
     UNUSED(handle);
 }
 
-// ---------------------------------------------------------------------------
-// Serial worker thread
-// ---------------------------------------------------------------------------
-
-static int32_t serial_worker(void* ctx_ptr) {
-    AppContext* ctx = ctx_ptr;
-
-    FuriHalSerialHandle* handle = furi_hal_serial_control_acquire(UART_CH);
-    furi_check(handle);
-    furi_hal_serial_init(handle, 115200);
-    furi_hal_serial_async_rx_start(handle, uart_rx_cb, ctx, false);
-
-    FURI_LOG_I(TAG, "Serial worker started");
-
-    while(ctx->running) {
-        // Drain ring buffer byte by byte into cmd_buf
-        while(ctx->rx_head != ctx->rx_tail) {
-            uint8_t byte = ctx->rx_buf[ctx->rx_tail];
-            ctx->rx_tail = (ctx->rx_tail + 1) % RX_BUF_SIZE;
-
-            if(byte == '\n' || byte == '\r') {
-                if(ctx->cmd_len > 0) {
-                    ctx->cmd_buf[ctx->cmd_len] = '\0';
-                    handle_command(ctx, handle, ctx->cmd_buf);
-                    ctx->cmd_len = 0;
-                }
-            } else {
-                if(ctx->cmd_len < CMD_BUF_SIZE - 1) {
-                    ctx->cmd_buf[ctx->cmd_len++] = (char)byte;
-                }
-            }
-        }
-        furi_delay_ms(10);
-    }
-
-    // Send serial response helper — expose handle to main loop via closure approach
-    // Store handle ref in context for use by input handler
-    ctx->serial_thread = NULL;  // signal done
-
-    furi_hal_serial_async_rx_stop(handle);
-    furi_hal_serial_deinit(handle);
-    furi_hal_serial_control_release(handle);
-
-    FURI_LOG_I(TAG, "Serial worker stopped");
-    return 0;
-}
-
 // We need the handle available in the input/main loop for sending responses.
 // Use a simple global pointer since ufbt apps are single-instance.
 static FuriHalSerialHandle* g_serial_handle = NULL;
