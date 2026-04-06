@@ -97,7 +97,8 @@ def _notify(action: str, kind: str | None = None, message: str = "") -> dict:
         "action": action,
     }
     if kind:
-        payload["type"] = kind
+        # Use "kind" field for new BASH/TOOL/PERM protocol; bridge also accepts legacy "type"
+        payload["kind"] = kind.upper()
     if message:
         payload["message"] = message[:120]
     return payload
@@ -127,8 +128,14 @@ def request_approval(kind: str, message: str) -> bool:
     message = message[:120]
     log.info("Requesting approval: kind=%s msg=%r", kind, message)
 
-    payload = _notify("NOTIFY", "ALERT", message)
-    payload["kind"] = kind
+    # Map internal kind names to Flipper screen types
+    flipper_kind = {
+        "bash": "BASH",
+        "write_file": "PERM",
+        "web_fetch": "TOOL",
+        "destructive": "BASH",
+    }.get(kind.lower(), "BASH")
+    payload = _notify("NOTIFY", flipper_kind, message)
 
     try:
         result = _send_request(payload)
