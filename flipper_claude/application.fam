@@ -1,0 +1,14 @@
+App(
+    appid="flipper_claude",
+    name="Claude Approval",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="flipper_claude_app",
+    fap_version=(1, 0),
+    fap_description="Claude Code physical approval gateway via Flipper Zero",
+    fap_author="Claude-Zero",
+    fap_weburl="https://github.com/amasetti/claude-zero",
+    fap_category="Tools",
+    targets=["f7"],
+    stack_size=2048,
+    order=10,
+)
