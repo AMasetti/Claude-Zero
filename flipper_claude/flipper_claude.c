@@ -23,7 +23,7 @@
 
 /* Alert screen geometry */
 #define ALERT_CX   2
-#define ALERT_CY  15
+#define ALERT_CY  23
 #define BOX_X     37   /* ALERT_CX + CW + 7 */
 #define BOX_Y     10
 #define BOX_W     89   /* SW - BOX_X - 2 */
@@ -31,7 +31,6 @@
 
 /* Integer trig: ×64 fixed-point, 12 steps = 30°/step */
 static const int8_t SIN64[12] = { 0, 32, 56, 64, 56, 32,  0,-32,-56,-64,-56,-32};
-static const int8_t COS64[12] = {64, 56, 32,  0,-32,-56,-64,-56,-32,  0, 32, 56};
 
 /* Leg cycle [1,2,2,1] – each phase lasts 3 ticks (150 ms ≈ 120 ms target) */
 static const uint8_t LEG_CYC[4] = {1, 2, 2, 1};
@@ -47,12 +46,13 @@ static const uint8_t BODY[5][14] = {
 /* Leg bitmap 1 row × 14 cols */
 static const uint8_t LEG[14] = {0,0,1,0,1,0,0,0,0,1,0,1,0,0};
 
-/* ZZZ art 4 rows × 5 cols, drawn at 3×3 px/pixel */
-static const uint8_t ZZZ[4][5] = {
-    {1,1,1,1,1},
-    {0,0,0,1,1},
-    {0,1,1,0,0},
-    {1,1,1,1,1},
+/* STAR art 5 rows × 5 cols (Anthropic asterisk), drawn at 3×3 px/pixel */
+static const uint8_t STAR[5][5] = {
+    {0,1,0,1,0},
+    {0,0,1,0,0},
+    {1,0,1,0,1},
+    {0,0,1,0,0},
+    {0,1,0,1,0},
 };
 
 /* ── Screen enum ──────────────────────────────────────────────────────────── */
@@ -129,22 +129,22 @@ static void draw_idle(Canvas* canvas, AppContext* ctx) {
     int char_y   = 8 + (48 - 14) / 2 + bob; /* ~25 */
 
     /* ── Top bar (inverted) ── */
-    canvas_draw_box(canvas, 0, 0, SW, 9);
+    canvas_draw_box(canvas, 0, 1, SW, 9);
     canvas_set_color(canvas, ColorWhite);
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 2,  7, "CLAUDE");
-    canvas_draw_str(canvas, 72, 7, "IDLE");
+    canvas_draw_str(canvas, 2,  8, "CLAUDE");
+    canvas_draw_str(canvas, 72, 8, "IDLE");
 
     /* Battery: outline body + terminal + 3 cells */
-    canvas_draw_frame(canvas, 115, 2, 10, 5);
-    canvas_draw_box(canvas, 125, 3,  2, 3);
+    canvas_draw_frame(canvas, 115, 3, 10, 5);
+    canvas_draw_box(canvas, 125, 4,  2, 3);
     for(int i = 0; i < 3; i++)
-        canvas_draw_box(canvas, 116 + i*3, 3, 2, 3);
+        canvas_draw_box(canvas, 116 + i*3, 4, 2, 3);
 
     /* Signal: 3 ascending bars */
     for(int i = 0; i < 3; i++) {
         int bh = 3 + i*2;
-        canvas_draw_box(canvas, 104 + i*4, 7 - bh, 3, bh);
+        canvas_draw_box(canvas, 104 + i*4, 8 - bh, 3, bh);
     }
     canvas_set_color(canvas, ColorBlack);
 
@@ -154,7 +154,7 @@ static void draw_idle(Canvas* canvas, AppContext* ctx) {
     /* ── Bottom bar ── */
     canvas_draw_line(canvas, 0, 56, SW-1, 56);
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 2, 63, "STANDBY");
+    canvas_draw_str(canvas, 2, 64, "STANDBY");
 
     /* 3 scrolling dots left→right at y=60, 40 px apart */
     int phase = (int)((t * 2) % (uint32_t)SW);
@@ -170,20 +170,20 @@ static void draw_think(Canvas* canvas, AppContext* ctx) {
     uint32_t t   = ctx->tick;
     uint8_t legs = LEG_CYC[(t / 3) % 4];
     int char_x   = 4;
-    int char_y   = 8 + (48 - 14) / 2; /* 25 */
+    int char_y   = 35; /* lowered to avoid thought bubble overlapping top bar */
 
     /* ── Top bar: outline only ── */
     canvas_draw_line(canvas, 0, 0, SW-1, 0);
-    canvas_draw_line(canvas, 0, 8, SW-1, 8);
+    canvas_draw_line(canvas, 0, 9, SW-1, 9);
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 2, 7, "THINKING");
+    canvas_draw_str(canvas, 2, 8, "THINKING");
 
     /* ── Character ── */
     draw_char(canvas, char_x, char_y, legs);
 
     /* ── Thought bubble: anchored at char_x+29, char_y+2 ── */
     int bx = char_x + 29; /* 33 */
-    int by = char_y + 2;  /* 27 */
+    int by = char_y + 2;  /* 37 */
     uint8_t phase = (uint8_t)((t / 10) % 4);
 
     /* Phase 0+: small 2×2 dot */
@@ -194,23 +194,23 @@ static void draw_think(Canvas* canvas, AppContext* ctx) {
         canvas_draw_box(canvas, bx+5, by-5, 3, 3);
 
     if(phase >= 2) {
-        /* Phase 2+: larger dot + rectangle outline 22×16 */
+        /* Phase 2+: larger dot + rectangle outline 22×18 (fits 5-row STAR) */
         canvas_draw_box(canvas, bx+11, by-11, 3, 3);
-        canvas_draw_frame(canvas, bx+11, by-27, 22, 16);
+        canvas_draw_frame(canvas, bx+11, by-29, 22, 18);
     }
 
     if(phase >= 3) {
-        /* Phase 3: ZZZ inside the rect (5 cols × 4 rows @ 3×3 px) */
+        /* Phase 3: STAR inside the rect (5 cols × 5 rows @ 3×3 px) */
         int zx = bx + 13;
-        int zy = by - 25;
-        for(int r = 0; r < 4; r++)
+        int zy = by - 27;
+        for(int r = 0; r < 5; r++)
             for(int c = 0; c < 5; c++)
-                if(ZZZ[r][c])
+                if(STAR[r][c])
                     canvas_draw_box(canvas, zx + c*3, zy + r*3, 3, 3);
     }
 
     /* ── Bottom bar ── */
-    canvas_draw_line(canvas, 0, 56, SW-1, 56);
+    canvas_draw_line(canvas, 0, 55, SW-1, 55);
     canvas_set_font(canvas, FontSecondary);
     canvas_draw_str(canvas, 2, 63, "PROCESSING");
 }
@@ -231,19 +231,19 @@ static void draw_alert(Canvas* canvas, AppContext* ctx,
     canvas_draw_box(canvas, 0, 0, SW, 9);
     canvas_set_color(canvas, ColorWhite);
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 2, 7, top_label);
+    canvas_draw_str(canvas, 2, 8, top_label);
     canvas_set_color(canvas, ColorBlack);
 
     /* ── Character ── */
     draw_char(canvas, cx, cy, legs);
 
-    /* Arms: 3 px wide, 4 px outside char edges.
+    /* Arms: 3 px wide, flush against char edges.
      * arm_up=true  → left at rows 1-2 (y+2), right at rows 3-4 (y+6)
      * arm_up=false → swapped                                          */
     int la_y = arm_up ? cy+2 : cy+6;
     int ra_y = arm_up ? cy+6 : cy+2;
-    canvas_draw_box(canvas, cx - 4,      la_y, 3, 4);   /* may clip left */
-    canvas_draw_box(canvas, cx + CW + 4, ra_y, 3, 4);
+    canvas_draw_box(canvas, cx - 1,      la_y, 3, 4);   /* flush left */
+    canvas_draw_box(canvas, cx + CW,     ra_y, 3, 4);   /* flush right */
 
     /* Exclamation mark – blinks on arm_up frames */
     if(arm_up && blink) {
@@ -317,26 +317,11 @@ static void draw_approved(Canvas* canvas, AppContext* ctx) {
     int bounce  = (int)(SIN64[(t * 2) % 12]) * 3 / 64;
     int char_x  = (SW - CW) / 2;   /* 50 */
     int char_y  = 23 + bounce;
-    int ray_cx  = char_x + CW / 2; /* 64 */
-    int ray_cy  = char_y + CH / 2;
-
-    canvas_draw_frame(canvas, 0, 0, SW, SH);
 
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str(canvas, 20, 15, "APPROVED");
+    canvas_draw_str(canvas, 24, 15, "APPROVED");
 
     draw_char(canvas, char_x, char_y, 2);
-
-    /* 6 rotating aura rays, inner r=26 outer r=32 */
-    int rot = (int)((t / 3) % 12);
-    for(int i = 0; i < 6; i++) {
-        int idx = (rot + i * 2) % 12;
-        int x1 = ray_cx + SIN64[idx] * 26 / 64;
-        int y1 = ray_cy - COS64[idx] * 26 / 64;
-        int x2 = ray_cx + SIN64[idx] * 32 / 64;
-        int y2 = ray_cy - COS64[idx] * 32 / 64;
-        canvas_draw_line(canvas, x1, y1, x2, y2);
-    }
 
     /* 4 sparkle dots at corners, alternating pairs every 4 ticks */
     bool sp = (bool)((t / 4) % 2);
@@ -347,9 +332,6 @@ static void draw_approved(Canvas* canvas, AppContext* ctx) {
         canvas_draw_box(canvas, 108, 14, 3, 3);
         canvas_draw_box(canvas, 110, 44, 3, 3);
     }
-
-    canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 34, 61, "CMD EXEC");
 }
 
 /* ── Screen 7: DENIED ────────────────────────────────────────────────────── */
@@ -361,10 +343,8 @@ static void draw_denied(Canvas* canvas, AppContext* ctx) {
     int shake  = (int)(SIN64[(t * 3) % 12]) * 2 / 64;
     bool blink = (bool)((t / 5) % 2);
 
-    canvas_draw_frame(canvas, 0, 0, SW, SH);
-
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str(canvas, 32, 15, "DENIED");
+    canvas_draw_str(canvas, 34, 15, "DENIED");
 
     draw_char(canvas, (SW - CW) / 2 + shake, 23, 1);
 
@@ -374,9 +354,6 @@ static void draw_denied(Canvas* canvas, AppContext* ctx) {
         draw_x(canvas, 102, 30);
         draw_x(canvas,  64, 52);
     }
-
-    canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 36, 61, "ABORTED");
 }
 
 /* ── Draw callback ───────────────────────────────────────────────────────── */
@@ -433,9 +410,9 @@ static void timer_cb(void* ctx_ptr) {
 
     ctx->tick++;
 
-    /* Advance scroll for alert screens */
+    /* Advance scroll for alert screens (every other tick = 50% speed) */
     if(ctx->screen == ScreenBash || ctx->screen == ScreenTool || ctx->screen == ScreenPerm) {
-        ctx->scroll_x--;
+        if(ctx->tick % 2 == 0) ctx->scroll_x--;
         if(ctx->scroll_x < BOX_X - ctx->msg_w - 10)
             ctx->scroll_x = (int16_t)(BOX_X + BOX_W);
     }
